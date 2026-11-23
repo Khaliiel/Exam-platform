@@ -1,0 +1,32 @@
+# Backend stack for a single VPS. Frontend goes on Vercel. Database is Supabase (not in this file).
+services:
+  api:
+    build: ./backend
+    env_file: .env
+    restart: unless-stopped
+    depends_on: [redis]
+    expose: ["8000"]
+  worker:
+    build: ./backend
+    env_file: .env
+    command: celery -A app.tasks.celery worker -l info --concurrency 2
+    restart: unless-stopped
+    depends_on: [redis]
+  beat:
+    build: ./backend
+    env_file: .env
+    command: celery -A app.tasks.celery beat -l info
+    restart: unless-stopped
+    depends_on: [redis]
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports: ["80:80", "443:443"]
+    environment: [API_DOMAIN]
+    volumes: ["./deploy/Caddyfile:/etc/caddy/Caddyfile:ro", "caddy_data:/data"]
+    depends_on: [api]
+volumes:
+  caddy_data:
